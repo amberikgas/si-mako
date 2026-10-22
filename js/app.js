@@ -39,7 +39,7 @@ registerPage('login', {
     $('#l-eye', el).onclick = () => { const p = $('#l-pw', el); p.type = p.type === 'password' ? 'text' : 'password'; $('#l-eye', el).innerHTML = ic(p.type === 'password' ? 'eye' : 'eye-off'); };
     $('#lf', el).onsubmit = async e => {
       e.preventDefault();
-      const email = $('#l-email', el).value.trim(), sandi = $('#l-pw', el).value, err = $('#l-err', el);
+      const email = $('#l-email', el).value.trim().toLowerCase(), sandi = $('#l-pw', el).value, err = $('#l-err', el);
       err.hidden = true;
       if (!email || !sandi) { err.innerHTML = '<div><b>Isi email dan sandi.</b></div>'; err.hidden = false; return; }
       await UI.busy($('#l-btn', el), async () => {

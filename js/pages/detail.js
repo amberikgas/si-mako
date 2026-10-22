@@ -88,7 +88,7 @@ function renderDetail(el, id) {
     '<div class="row-between mt12 small"><span class="muted semi">Pelunasan</span><span class="semi success">' + pct + '% terbayar</span></div><div class="bar-progress mt8"><i style="width:' + pct + '%"></i></div>' +
     '<div class="overline mt16 mb8">Riwayat pembayaran</div>' +
     (pays.length ? '<div class="stack-sm">' + pays.map(p => '<div class="row" style="padding:8px 0;border-top:1px solid var(--line);' + (p.batal ? 'opacity:.5' : '') + '"><span class="icon-box sm ' + (p.batal ? 'slate' : 'green') + '">' + ic(methodIcon(p.metode), 'ico-sm') + '</span><div class="grow"><div class="semi">' + esc(methodLabel(p.metode)) + (p.batal ? ' <span class="pill st-batal">dibatalkan</span>' : '') + '</div><div class="small muted">' + fmt.date(p.tgl) + ' · ' + esc(p.jenis) + (p.catatan ? ' · ' + esc(p.catatan) : '') + '</div>' +
-      (p.bukti_url ? '<a class="small semi" href="' + esc(p.bukti_url) + '" target="_blank" rel="noopener">' + ic('image', 'ico-sm') + ' Lihat bukti</a>' : '') + '</div><div class="right"><div class="num semi">' + fmt.rp(p.jumlah) + '</div>' +
+      (safeUrl(p.bukti_url) ? '<a class="small semi" href="' + safeUrl(p.bukti_url) + '" target="_blank" rel="noopener">' + ic('image', 'ico-sm') + ' Lihat bukti</a>' : '') + '</div><div class="right"><div class="num semi">' + fmt.rp(p.jumlah) + '</div>' +
       (Session.owner && !p.batal ? '<button class="btn-link btn btn-sm danger" data-void="' + p.id + '" style="min-height:32px">Batalkan</button>' : '') + '</div></div>').join('') + '</div>' : '<div class="small muted">Belum ada pembayaran.</div>') +
     (!o.batal && o.sisa > 0 ? '<button class="btn btn-soft btn-block mt12 only-desk flex" data-pay>' + ic('wallet') + 'Terima bayaran</button>' : '') + '</div>';
   const hist = '<details class="card fold" ' + (matchMedia('(min-width:1024px)').matches ? 'open' : '') + '><summary class="card-head"><h3>' + ic('history') + 'Riwayat tahap <span class="badge blue">' + o.hist.length + '</span></h3>' + ic('chevron-down', 'ico fold-ico') + '</summary><div class="card-body"><div class="timeline">' +
@@ -118,12 +118,16 @@ function openPayment(orderId) {
     const V = Data.view(), o = st.id && V.ordersById[st.id];
     const body = $('[data-pb]', s.body), foot = $('[data-pf]', s.foot);
     if (!o) {
-      const list = V.unpaid.filter(x => !st.q || x.search.indexOf(st.q.toLowerCase()) > -1).sort((a, b) => b.sisa - a.sisa);
-      body.innerHTML = '<div class="overline mb8">1. Pilih pesanan yang belum lunas</div><div class="search mb12">' + ic('search') + '<input class="input" data-pq placeholder="Cari nama atau no. nota" value="' + esc(st.q) + '"></div>' +
-        (list.length ? '<div class="card list">' + list.slice(0, 40).map(x => '<button class="li" data-pick="' + x.id + '"><div class="grow"><div class="semi ellipsis">' + esc(x.cust.nama) + '</div><div class="small muted ellipsis">' + esc(x.no_nota) + ' · ' + esc(x.summary) + '</div></div><div class="right"><div class="num semi danger">' + fmt.rp(x.sisa) + '</div>' + UI.pay(x.status_bayar) + '</div></button>').join('') + '</div>'
-          : UI.empty('party-popper', 'Semua pesanan sudah lunas', st.q ? 'Tidak ada yang cocok dengan pencarian.' : 'Tidak ada tagihan tertunda.'));
+      const drawList = () => {
+        const list = Data.view().unpaid.filter(x => !st.q || x.search.indexOf(st.q.toLowerCase()) > -1).sort((a, b) => b.sisa - a.sisa);
+        const box = $('[data-plist]', body); if (!box) return;
+        box.innerHTML = list.length ? '<div class="card list">' + list.slice(0, 40).map(x => '<button class="li" data-pick="' + x.id + '"><div class="grow"><div class="semi ellipsis">' + esc(x.cust.nama) + '</div><div class="small muted ellipsis">' + esc(x.no_nota) + ' · ' + esc(x.summary) + '</div></div><div class="right"><div class="num semi danger">' + fmt.rp(x.sisa) + '</div>' + UI.pay(x.status_bayar) + '</div></button>').join('') + '</div>'
+          : UI.empty('party-popper', 'Semua pesanan sudah lunas', st.q ? 'Tidak ada yang cocok dengan pencarian.' : 'Tidak ada tagihan tertunda.');
+      };
+      body.innerHTML = '<div class="overline mb8">1. Pilih pesanan yang belum lunas</div><div class="search mb12">' + ic('search') + '<input class="input" data-pq placeholder="Cari nama atau no. nota" value="' + esc(st.q) + '"></div><div data-plist></div>';
       foot.innerHTML = '<button class="btn btn-ghost btn-block" data-close>Tutup</button>';
-      const pq = $('[data-pq]', body); pq.oninput = debounce(() => { st.q = pq.value; draw(); const n = $('[data-pq]', body); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 200);
+      drawList();
+      const pq = $('[data-pq]', body); pq.oninput = debounce(() => { st.q = pq.value; drawList(); }, 150);
       return;
     }
     const half = Math.round(o.sisa / 2), after = Math.max(o.sisa - st.jumlah, 0);

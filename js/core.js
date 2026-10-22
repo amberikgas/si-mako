@@ -8,10 +8,11 @@
 'use strict';
 
 const CFG = Object.assign({ API_URL: '', APP_NAME: 'Si-MAKO' }, window.SIMAKO_CONFIG || {});
-const APP_VER = '1.0.0';
+const APP_VER = '1.0.1';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const safeUrl = u => { u = String(u == null ? '' : u).trim(); return /^(https?:\/\/|data:image\/(?:png|jpe?g|gif|webp|svg\+xml);base64,)/i.test(u) ? esc(u) : ''; };
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const debounce = (fn, ms) => { let t; return function (...a) { const self = this; clearTimeout(t); t = setTimeout(() => fn.apply(self, a), ms); }; };
@@ -65,9 +66,10 @@ const IDB = {
   async del(k) { const db = await this.open(); if (!db) { this.mem.delete(k); return; } return new Promise(res => { try { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); } catch (e) { res(); } }); }
 };
 const LS = {
-  get(k, d) { try { const v = localStorage.getItem('simako:' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem('simako:' + k, JSON.stringify(v)); } catch (e) {} },
-  del(k) { try { localStorage.removeItem('simako:' + k); } catch (e) {} }
+  mem: new Map(),
+  get(k, d) { try { const v = localStorage.getItem('simako:' + k); return v ? JSON.parse(v) : (this.mem.has(k) ? this.mem.get(k) : d); } catch (e) { return this.mem.has(k) ? this.mem.get(k) : d; } },
+  set(k, v) { this.mem.set(k, v); try { localStorage.setItem('simako:' + k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { this.mem.delete(k); try { localStorage.removeItem('simako:' + k); } catch (e) {} }
 };
 
 /* ---------------- sesi ---------------- */
@@ -146,7 +148,10 @@ function warmUpServer() {
 }
 function onSessionExpired() {
   if (!Session.token) return;
+  const me = Session.me;
   Session.clear(); Data.reset();
+  if (me && me.email) IDB.del('data:' + me.email);
+  LS.del('draft');
   UI.toast('Sesi berakhir. Silakan masuk lagi.', 'err');
   go('login');
 }
@@ -160,7 +165,7 @@ const Data = {
   rev: 0, key: '', loaded: false, lastSync: 0, syncing: null,
   listeners: [],
   onChange(fn) { this.listeners.push(fn); },
-  reset() { this.t = {}; this.vers = {}; this.rev++; this.loaded = false; this._view = null; this.lastSync = 0; },
+  reset() { this.t = {}; this.vers = {}; this.rev++; this.loaded = false; this._view = null; this.lastSync = 0; if (typeof OF !== 'undefined') OF.s = null; if (typeof HM !== 'undefined') HM.s = null; },
   rows(name) { const t = this.t[name]; return t ? Array.from(t.rows.values()) : []; },
   get(name, id) { const t = this.t[name]; return (t && t.rows.get(id)) || null; },
   versPayload() { const o = {}; Object.keys(this.vers).forEach(k => { o[k] = this.vers[k]; }); return o; },
@@ -198,9 +203,10 @@ const Data = {
       tb.rows.forEach(r => {
         const o = cur.rows.get(r[0]) || {};
         tb.cols.forEach((c, i) => { o[c] = r[i]; });
-        cur.rows.set(o.id, o);
+        if (o.dihapus) cur.rows.delete(o.id); else cur.rows.set(o.id, o);
         if (iu > -1 && r[iu] > maxS) maxS = r[iu];
       });
+      if (Array.isArray(tb.deleted)) tb.deleted.forEach(id => cur.rows.delete(id));
       cur.cols = tb.cols;
       this.vers[name] = { v: sync.vers[name], s: maxS };
       changed = true;
@@ -218,7 +224,15 @@ const Data = {
     if (this.syncing) return this.syncing;
     this.syncing = api('sync', {}).finally(() => { this.syncing = null; });
     const r = await this.syncing;
-    if (r && r.success && r.data && r.data.me) { Session.set(Session.token, r.data.me); }
+    if (r && r.success && r.data && r.data.me) {
+      const prev = Session.me || {}, next = r.data.me;
+      Session.set(Session.token, next);
+      if (prev.peran !== next.peran || prev.nama !== next.nama) {
+        const def = Pages[Router.cur];
+        if (def && def.auth === 'owner' && !Session.owner) route();
+        else if (def) Shell.render(Router.cur, def);
+      }
+    }
     return r;
   },
   /** Ubah lokal sementara (optimistic) — dipakai untuk pindah tahap. */
@@ -242,13 +256,13 @@ function buildView() {
   const sizeTypesAll = T('JenisUkuran').sort((a, b) => a.urut - b.urut);
   const sizeTypes = sizeTypesAll.filter(j => j.aktif);
   const sizeTypeMap = {}; sizeTypesAll.forEach(j => { j.sizes = String(j.daftar_ukuran || '').split(',').map(s => s.trim()).filter(Boolean); sizeTypeMap[j.id] = j; });
-  const customers = {}; T('Pelanggan').forEach(c => { customers[c.id] = c; });
+  const customers = {}; T('Pelanggan').forEach(c => { if (!c.dihapus) customers[c.id] = c; });
   const ukByBarang = {}; T('PesananUkuran').forEach(u => { if (!u.dihapus) (ukByBarang[u.barang_id] = ukByBarang[u.barang_id] || []).push(u); });
   const brByOrder = {}; T('PesananBarang').forEach(b => { if (!b.dihapus) (brByOrder[b.pesanan_id] = brByOrder[b.pesanan_id] || []).push(b); });
   const payByOrder = {}; T('Pembayaran').forEach(p => { (payByOrder[p.pesanan_id] = payByOrder[p.pesanan_id] || []).push(p); });
   const histByOrder = {}; T('RiwayatTahap').forEach(h => { (histByOrder[h.pesanan_id] = histByOrder[h.pesanan_id] || []).push(h); });
   const t0 = today();
-  const orders = T('Pesanan').map(o => {
+  const orders = T('Pesanan').filter(o => !o.dihapus).map(o => {
     const items = (brByOrder[o.id] || []).sort((a, b) => a.urut - b.urut).map(b => Object.assign({}, b, { sizes: (ukByBarang[b.id] || []).sort((a, c) => a.urut - c.urut), sizeType: sizeTypeMap[b.jenis_ukuran_id] }));
     const pcs = items.reduce((a, b) => a + (b.qty_total || 0), 0);
     const pays = (payByOrder[o.id] || []).slice().sort((a, b) => (a.tgl + a.dibuat_pada < b.tgl + b.dibuat_pada ? -1 : 1));
@@ -348,6 +362,11 @@ Data.onChange(() => {
   window.scrollTo(0, y);
 });
 addEventListener('hashchange', route);
+addEventListener('storage', e => {
+  if (e.key !== 'simako:sess') return;
+  if (!Session.token) { Data.reset(); UI.closeAll(); route(); }
+  else if (Router.cur === 'login' && Session.me) { Data.load(Session.me.email).then(() => { route(); Data.refresh({ force: true }); }); }
+});
 
 /* ---------------- aktivitas & sinkron berkala ---------------- */
 const Activity = {

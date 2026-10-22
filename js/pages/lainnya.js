@@ -57,11 +57,19 @@ registerPage('akun', {
   title: 'Ubah sandi', nav: 'lainnya', live: false,
   header: () => ({ title: 'Ubah sandi', back: 'lainnya' }),
   render(el) {
+    const pwField = (id, label, name, ac) => '<div class="field"><label for="' + id + '">' + label + '</label><div class="input-group"><input id="' + id + '" class="input" type="password" name="' + name + '" autocomplete="' + ac + '" style="padding-right:52px"><button type="button" class="btn btn-icon suffix" data-eye="' + id + '" aria-label="Tampilkan sandi">' + ic('eye') + '</button></div></div>';
     el.innerHTML = '<div class="form-narrow">' + pageHead('Ubah sandi', 'Sandi baru minimal 6 karakter. Perangkat lain akan diminta masuk lagi.') +
-      '<form class="card card-pad stack" data-pf novalidate><div class="field"><label for="pw-o">Sandi sekarang</label><input id="pw-o" class="input" type="password" name="lama" autocomplete="current-password"></div>' +
-      '<div class="field"><label for="pw-n">Sandi baru</label><input id="pw-n" class="input" type="password" name="baru" autocomplete="new-password" minlength="6"></div>' +
-      '<div class="field"><label for="pw-c">Ulangi sandi baru</label><input id="pw-c" class="input" type="password" name="ulang" autocomplete="new-password"></div>' +
+      '<form class="card card-pad stack" data-pf novalidate>' +
+      pwField('pw-o', 'Sandi sekarang', 'lama', 'current-password') +
+      pwField('pw-n', 'Sandi baru', 'baru', 'new-password') +
+      pwField('pw-c', 'Ulangi sandi baru', 'ulang', 'new-password') +
       '<div class="err" data-e hidden></div><button class="btn btn-primary btn-lg">Simpan sandi baru</button></form></div>';
+    el.onclick = e => {
+      const b = e.target.closest('[data-eye]'); if (!b) return;
+      const inp = $('#' + b.dataset.eye, el); if (!inp) return;
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+      b.innerHTML = ic(inp.type === 'password' ? 'eye' : 'eye-off');
+    };
     $('[data-pf]', el).onsubmit = async e => {
       e.preventDefault();
       const d = Object.fromEntries(new FormData(e.target).entries()), err = $('[data-e]', el);
@@ -107,7 +115,7 @@ function renderBizSettings(el) {
     '<div class="field mt8"><label>Atas nama</label><input class="input" data-b="nama" value="' + esc(r.nama) + '" maxlength="80"></div></div>').join('');
   el.innerHTML = '<div class="form-narrow">' + pageHead('Data usaha & rekening', 'Tampil di nota dan pesan WhatsApp.') +
     '<form class="stack" data-sf novalidate><div class="card card-pad stack">' +
-    '<div class="row"><div data-logo>' + (logo ? '<img src="' + esc(logo) + '" alt="Logo" style="width:64px;height:64px;border-radius:12px;object-fit:contain;background:var(--soft)">' : '<div class="logo-mark" style="width:64px;height:64px">' + esc(fmt.initials(S.nama_usaha)) + '</div>') + '</div>' +
+    '<div class="row"><div data-logo>' + (safeUrl(logo) ? '<img src="' + safeUrl(logo) + '" alt="Logo" style="width:64px;height:64px;border-radius:12px;object-fit:contain;background:var(--soft)">' : '<div class="logo-mark" style="width:64px;height:64px">' + esc(fmt.initials(S.nama_usaha)) + '</div>') + '</div>' +
     '<div class="grow"><label class="btn btn-ghost btn-sm" style="cursor:pointer">' + ic('image-up', 'ico-sm') + 'Ganti logo<input type="file" accept="image/*" data-logofile hidden></label>' + (logo ? ' <button type="button" class="btn btn-sm btn-link danger" data-rmlogo>Hapus</button>' : '') + '<div class="small muted mt8">Gambar persegi, otomatis dikecilkan.</div></div></div>' +
     '<div class="field"><label class="req" for="bz-n">Nama usaha</label><input id="bz-n" class="input" name="nama_usaha" value="' + esc(S.nama_usaha) + '" maxlength="80"></div>' +
     '<div class="field"><label for="bz-t">Keterangan singkat</label><input id="bz-t" class="input" name="tagline" value="' + esc(S.tagline) + '" placeholder="Konveksi & Garment Malang" maxlength="80"></div>' +
@@ -261,12 +269,18 @@ function userForm(u) {
     if (e.target.closest('[data-c]')) return s.close();
     const b = e.target.closest('[data-s]'); if (!b) return;
     const d = Object.fromEntries(new FormData($('[data-uf]', s.body)).entries()), err = $('[data-e]', s.body);
-    const payload = { id: u.id, nama: d.nama, peran, aktif: u.id ? u.aktif : true, email: d.email, sandi: d.sandi };
-    await UI.busy(b, async () => { const r = await api('saveUser', payload, { reqId }); if (!r.success) { err.textContent = r.message; err.hidden = false; return; } s.close(); UI.toast('Pengguna tersimpan.'); });
+    const fail = m => { err.textContent = m; err.hidden = false; };
+    err.hidden = true;
+    const nama = String(d.nama || '').trim(), email = String(d.email || '').trim().toLowerCase(), sandi = String(d.sandi || '');
+    if (!u.id && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $('#uf-e', s.body).focus(); return fail('Format email belum benar.'); }
+    if (!nama) { $('#uf-n', s.body).focus(); return fail('Isi nama pengguna.'); }
+    if (!u.id && sandi.length < 6) { $('#uf-p', s.body).focus(); return fail('Sandi awal minimal 6 karakter.'); }
+    const payload = { id: u.id, nama, peran, aktif: u.id ? u.aktif : true, email, sandi };
+    await UI.busy(b, async () => { const r = await api('saveUser', payload, { reqId }); if (!r.success) return fail(r.message); s.close(); UI.toast('Pengguna tersimpan.'); });
   };
 }
 async function resetPw(u) {
-  const pw = await UI.prompt({ title: 'Sandi baru untuk ' + u.nama, msg: 'Pengguna akan keluar dari semua perangkat dan masuk dengan sandi ini.', label: 'Sandi baru (min. 6 karakter)', ok: 'Simpan sandi' });
+  const pw = await UI.prompt({ title: 'Sandi baru untuk ' + u.nama, msg: 'Pengguna akan keluar dari semua perangkat dan masuk dengan sandi ini.', label: 'Sandi baru (min. 6 karakter)', min: 6, minMsg: 'Sandi baru minimal 6 karakter.', ok: 'Simpan sandi' });
   if (pw == null) return;
   const r = await api('resetPassword', { email: u.email, sandi: pw }, { vers: false });
   UI.toast(r.success ? 'Sandi ' + u.nama + ' diganti.' : r.message, r.success ? 'ok' : 'err');

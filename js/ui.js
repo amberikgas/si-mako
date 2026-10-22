@@ -66,10 +66,16 @@ const UI = {
   /** Minta satu isian teks pendek. */
   prompt(o) {
     return new Promise(res => {
-      const s = UI.sheet({ title: o.title, cls: 'dialog', body: (o.msg ? '<p class="muted mb12">' + esc(o.msg) + '</p>' : '') + '<div class="field"><label for="pr-in">' + esc(o.label || '') + '</label><input id="pr-in" class="input" autofocus value="' + esc(o.value || '') + '" placeholder="' + esc(o.placeholder || '') + '" ' + (o.inputmode ? 'inputmode="' + o.inputmode + '"' : '') + ' maxlength="' + (o.max || 200) + '"></div>',
+      const s = UI.sheet({ title: o.title, cls: 'dialog', body: (o.msg ? '<p class="muted mb12">' + esc(o.msg) + '</p>' : '') + '<div class="field"><label for="pr-in">' + esc(o.label || '') + '</label><input id="pr-in" class="input" autofocus value="' + esc(o.value || '') + '" placeholder="' + esc(o.placeholder || '') + '" ' + (o.inputmode ? 'inputmode="' + o.inputmode + '"' : '') + ' maxlength="' + (o.max || 200) + '"><div class="err" data-perr hidden></div></div>',
         foot: '<button class="btn btn-ghost" data-no>Batal</button><button class="btn btn-primary" data-yes>' + esc(o.ok || 'Simpan') + '</button>', onClose: v => res(typeof v === 'string' ? v : null) });
-      const inp = s.body.querySelector('input');
-      const done = () => { const v = inp.value.trim(); if (!v && o.required !== false) { inp.classList.add('invalid'); inp.focus(); return; } s.close(v); };
+      const inp = s.body.querySelector('input'), err = s.body.querySelector('[data-perr]');
+      const done = () => {
+        const v = inp.value.trim();
+        if (!v && o.required !== false) { inp.classList.add('invalid'); inp.focus(); return; }
+        if (o.min && v.length < o.min) { inp.classList.add('invalid'); err.textContent = o.minMsg || ('Minimal ' + o.min + ' karakter.'); err.hidden = false; inp.focus(); return; }
+        s.close(v);
+      };
+      inp.addEventListener('input', () => { inp.classList.remove('invalid'); err.hidden = true; });
       s.foot.querySelector('[data-no]').onclick = () => s.close(null);
       s.foot.querySelector('[data-yes]').onclick = done;
       inp.addEventListener('keydown', e => { if (e.key === 'Enter') done(); });
@@ -80,6 +86,8 @@ const UI = {
     $$('.menu-pop').forEach(m => m.remove());
     const pop = document.createElement('div'); pop.className = 'menu-pop'; pop.setAttribute('role', 'menu');
     pop.innerHTML = items.filter(Boolean).map((it, i) => '<button role="menuitem" data-i="' + i + '" class="' + (it.danger ? 'danger' : '') + '">' + ic(it.icon || 'chevron-right') + esc(it.label) + '</button>').join('');
+    const rc = anchor.getBoundingClientRect();
+    if (window.innerHeight - rc.bottom < 180 && rc.top > 180) pop.classList.add('up');
     const wrap = anchor.closest('.rel') || anchor.parentElement; wrap.classList.add('rel'); wrap.appendChild(pop);
     const list = items.filter(Boolean);
     pop.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; pop.remove(); list[+b.dataset.i].run(); });

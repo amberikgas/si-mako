@@ -217,7 +217,7 @@ registerPage('keuangan', {
     } else {
       const byC = {}; pOut.forEach(x => { byC[x.kategori] = (byC[x.kategori] || 0) + x.jumlah; });
       body = '<div class="row-between mb12"><div class="row wrap">' + Object.keys(byC).map(k => '<span class="tag">' + esc(k) + ': ' + fmt.rp(byC[k]) + '</span>').join('') + '</div><button class="btn btn-primary btn-sm" data-addx>' + ic('plus', 'ico-sm') + 'Catat</button></div>' +
-        (pOut.length ? '<div class="card list">' + pOut.map(x => '<div class="li"><span class="icon-box sm red">' + ic('arrow-up-right', 'ico-sm') + '</span><div class="grow"><div class="semi ellipsis">' + esc(x.keterangan || x.kategori) + '</div><div class="small muted">' + fmt.date(x.tgl) + ' · ' + esc(x.kategori) + (x.bukti_url ? ' · <a href="' + esc(x.bukti_url) + '" target="_blank" rel="noopener">bukti</a>' : '') + '</div></div><span class="num semi danger">−' + fmt.rp(x.jumlah) + '</span><div class="rel"><button class="btn btn-icon btn-sm" data-xm="' + x.id + '" aria-label="Menu">' + ic('ellipsis-vertical', 'ico-sm') + '</button></div></div>').join('') + '</div>'
+        (pOut.length ? '<div class="card list">' + pOut.map(x => '<div class="li"><span class="icon-box sm red">' + ic('arrow-up-right', 'ico-sm') + '</span><div class="grow"><div class="semi ellipsis">' + esc(x.keterangan || x.kategori) + '</div><div class="small muted">' + fmt.date(x.tgl) + ' · ' + esc(x.kategori) + (safeUrl(x.bukti_url) ? ' · <a href="' + safeUrl(x.bukti_url) + '" target="_blank" rel="noopener">bukti</a>' : '') + '</div></div><span class="num semi danger">−' + fmt.rp(x.jumlah) + '</span><div class="rel"><button class="btn btn-icon btn-sm" data-xm="' + x.id + '" aria-label="Menu">' + ic('ellipsis-vertical', 'ico-sm') + '</button></div></div>').join('') + '</div>'
           : '<div class="card">' + UI.empty('wallet', 'Belum ada uang keluar bulan ini', 'Catat belanja bahan, gaji, listrik, dan lainnya.', '<button class="btn btn-primary mt16" data-addx>' + ic('plus') + 'Catat uang keluar</button>') + '</div>');
     }
     el.innerHTML = pageHead('Keuangan', 'Tagihan, uang masuk, dan uang keluar per bulan.', '<button class="btn btn-primary" data-addx>' + ic('plus') + 'Catat uang keluar</button>') +
@@ -241,8 +241,11 @@ function monthReport(V, ym) {
   const pays = V.payments.filter(p => p.tgl.slice(0, 7) === ym), outs = V.expenses.filter(x => x.tgl.slice(0, 7) === ym);
   const [y, m] = ym.split('-').map(Number), nd = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const days = Array.from({ length: nd }, (_, i) => ym + '-' + String(i + 1).padStart(2, '0'));
-  const inDay = days.map(d => pays.filter(p => p.tgl === d).reduce((a, p) => a + p.jumlah, 0));
-  const outDay = days.map(d => outs.filter(p => p.tgl === d).reduce((a, p) => a + p.jumlah, 0));
+  const inMap = {}, outMap = {};
+  pays.forEach(p => { inMap[p.tgl] = (inMap[p.tgl] || 0) + p.jumlah; });
+  outs.forEach(x => { outMap[x.tgl] = (outMap[x.tgl] || 0) + x.jumlah; });
+  const inDay = days.map(d => inMap[d] || 0);
+  const outDay = days.map(d => outMap[d] || 0);
   const sizes = {}; orders.forEach(o => o.items.forEach(b => b.sizes.forEach(z => { sizes[z.ukuran] = (sizes[z.ukuran] || 0) + z.qty; })));
   const custs = {}; orders.forEach(o => { custs[o.cust.nama] = (custs[o.cust.nama] || 0) + o.total; });
   const items = {}; orders.forEach(o => o.items.forEach(b => { const k = b.jenis; items[k] = items[k] || { pcs: 0, total: 0 }; items[k].pcs += b.qty_total; items[k].total += b.subtotal; }));

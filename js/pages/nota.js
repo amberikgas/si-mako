@@ -7,7 +7,7 @@ function notaHtml(o) {
   const V = Data.view(), S = V.settings, banks = S.rekeningList || [];
   const paid = o.pays.filter(p => !p.batal);
   return '<article class="nota" id="nota-doc">' +
-    '<div class="n-head">' + (S.logo ? '<img class="logo" src="' + esc(S.logo) + '" alt="Logo">' : '<div class="logo">' + esc(fmt.initials(S.nama_usaha)) + '</div>') +
+    '<div class="n-head">' + (safeUrl(S.logo) ? '<img class="logo" src="' + safeUrl(S.logo) + '" alt="Logo">' : '<div class="logo">' + esc(fmt.initials(S.nama_usaha)) + '</div>') +
     '<div class="grow"><div class="h-md" style="font-weight:800">' + esc(S.nama_usaha || 'Konveksi') + '</div>' + (S.tagline ? '<div class="overline" style="color:#334155">' + esc(S.tagline) + '</div>' : '') +
     (S.alamat ? '<div class="small muted mt8">' + esc(S.alamat) + '</div>' : '') + (S.wa ? '<div class="small muted">WA ' + esc(fmt.wa(S.wa)) + '</div>' : '') + '</div></div>' +
     '<div class="title-bar"><span>NOTA PESANAN</span><span class="num">' + esc(o.no_nota) + '</span></div>' +
