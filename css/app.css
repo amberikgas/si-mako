@@ -62,6 +62,7 @@ img, svg { display: block; max-width: 100%; }
 
 /* ---------- app shell ---------- */
 .app { min-height: 100vh; min-height: 100dvh; }
+.app.bare { display: block !important; }
 .sidebar { display: none; }
 .main { min-width: 0; padding-bottom: calc(var(--bnav) + var(--safe-b) + 16px); }
 .app.no-bnav .main { padding-bottom: 24px; }
@@ -151,7 +152,7 @@ img, svg { display: block; max-width: 100%; }
 .input::placeholder, .textarea::placeholder { color: var(--tx3); }
 .input-group { position: relative; display: flex; align-items: center; }
 .input-group .prefix { position: absolute; left: 12px; color: var(--tx2); font-weight: 600; pointer-events: none; font-size: 15px; }
-.input-group .input { padding-left: 40px; }
+.input-group .prefix ~ .input { padding-left: 40px; }
 .input-group .suffix { position: absolute; right: 4px; }
 .input.money { text-align: right; font-weight: 600; }
 .search { position: relative; }
@@ -329,7 +330,7 @@ body.modal-open { overflow: hidden; }
 /* ---------- login ---------- */
 .login-wrap { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; background: radial-gradient(1200px 500px at 50% -10%, #DCE5FF 0%, var(--canvas) 60%); }
 .login-card { width: 100%; max-width: 400px; padding: 28px 22px; }
-.logo-mark { width: 56px; height: 56px; border-radius: 16px; background: var(--pri); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 20px; letter-spacing: -.03em; box-shadow: 0 10px 24px -10px rgba(43, 91, 245, .8); }
+.logo-mark { width: 56px; height: 56px; flex: none; border-radius: 16px; background: var(--pri); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 20px; letter-spacing: -.03em; box-shadow: 0 10px 24px -10px rgba(43, 91, 245, .8); }
 
 .menu-pop { position: absolute; right: 0; top: calc(100% + 4px); background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--sh2); min-width: 220px; z-index: 50; padding: 6px; }
 .menu-pop button, .menu-pop a { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; background: none; border-radius: 8px; color: var(--tx); font-weight: 500; text-align: left; }
@@ -355,7 +356,9 @@ details.fold[open] .fold-ico { transform: rotate(180deg); }
 .pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); flex-wrap: wrap; }
 
 /* only-mobile / only-desktop helpers */
-.only-desk { display: none !important; }
+@media (max-width: 767.98px) {
+  .only-desk { display: none !important; }
+}
 
 /* ============================================================
    TABLET ≥ 768 — menu samping bisa dilipat
@@ -395,7 +398,6 @@ details.fold[open] .fold-ico { transform: rotate(180deg); }
   .page-head h1 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
   .page-head p { color: var(--tx2); margin-top: 4px; }
   .page-head .acts { display: flex; gap: 10px; flex-wrap: wrap; }
-  .only-desk { display: initial !important; } .only-desk.flex { display: flex !important; } .only-desk.grid { display: grid !important; } .only-desk.block { display: block !important; }
   .only-mob { display: none !important; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
   .kpi { padding: 18px 20px; }
@@ -417,7 +419,7 @@ details.fold[open] .fold-ico { transform: rotate(180deg); }
 @media (min-width: 1024px) {
   .app, .app.side-open { grid-template-columns: var(--side) minmax(0, 1fr); }
   .app .side-brand .bt, .app .side-sec, .app .side-nav a span { display: revert !important; }
-  .app .side-nav a .badge { display: inline-grid !important; }
+  .app .side-nav a .badge:not([hidden]) { display: inline-grid !important; }
   .app .side-nav a { justify-content: flex-start !important; padding: 10px 14px !important; }
   .app .side-brand { justify-content: flex-start !important; flex-direction: row !important; padding: 16px 18px !important; }
   .app .side-sec { height: auto !important; padding: 18px 22px 6px !important; font-size: 11px !important; }

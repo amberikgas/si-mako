@@ -138,7 +138,8 @@ async function api(action, data, opt = {}) {
 }
 function warmUpServer() {
   if (!CFG.API_URL) return;
-  const k = 'warm_at'; const last = +sessionStorage.getItem(k) || 0;
+  const k = 'warm_at'; let last = 0;
+  try { last = +sessionStorage.getItem(k) || 0; } catch (e) {}
   if (Date.now() - last < 240000) return;
   try { sessionStorage.setItem(k, Date.now()); } catch (e) {}
   fetch(CFG.API_URL + (CFG.API_URL.indexOf('?') > -1 ? '&' : '?') + 'w=1&t=' + Date.now(), { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
