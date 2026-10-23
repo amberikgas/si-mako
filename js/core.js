@@ -341,6 +341,7 @@ function route() {
   Router.cur = pname; Router.param = param; Router.query = query;
   Shell.render(pname, def);
   const host = $('#pages');
+  Array.from(host.children).forEach(c => { if (!c.classList.contains('page')) c.remove(); });
   let el = host.querySelector('.page[data-page="' + pname + '"]');
   if (!el) { el = document.createElement('section'); el.className = 'page' + (def.flush ? ' flush' : ''); el.dataset.page = pname; host.appendChild(el); }
   $$('.page', host).forEach(p => { p.hidden = p !== el; });

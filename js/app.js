@@ -74,7 +74,7 @@ registerPage('teknis', {
       '<div class="card card-pad stack-sm"><h3 class="h-sm">Fungsi editor Apps Script</h3><div class="small muted" style="line-height:1.9">' +
       '<b>resetSandiPemilik</b> — sandi baru untuk Pemilik · <b>cekPerforma</b> — status cache & pemicu · <b>bersihkanCache</b> — setelah edit manual di Sheet · <b>cadanganSekarang</b> — salin Sheet ke Drive · <b>matikanKeepWarm</b>/<b>nyalakanKeepWarm</b></div></div>' +
       '<div id="tk-sys"></div>' +
-      '<a class="btn btn-ghost" href="' + location.pathname + '#/beranda">' + ic('arrow-left') + 'Kembali ke aplikasi</a></div>';
+      '<a class="btn btn-ghost" href="' + (Session.token ? '#/lainnya' : '#/beranda') + '">' + ic('arrow-left') + 'Kembali ke aplikasi</a></div>';
     const box = $('#tk-health', el);
     if (!CFG.API_URL) { box.innerHTML = '<div class="banner red"><div>' + ic('circle-alert') + '</div><div><b>API_URL kosong</b><span>Isi config.js dengan URL /exec.</span></div></div>'; return; }
     const t0 = performance.now();

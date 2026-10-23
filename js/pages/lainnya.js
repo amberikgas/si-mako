@@ -32,7 +32,7 @@ registerPage('lainnya', {
         hubRow('', 'cloud-upload', 'green', 'Cadangkan ke Google Drive sekarang', '', 'backup') +
         hubRow('', 'download', 'sky', 'Ekspor semua data (JSON)', '', 'export') +
         hubRow('', 'refresh-cw', 'amber', 'Muat ulang data dari Sheet', '', 'refresh') +
-        hubRow('?setup=1', 'wrench', 'slate', 'Menu teknis & kesehatan sistem') +
+        hubRow('#/teknis', 'wrench', 'slate', 'Menu teknis & kesehatan sistem') +
       '</div>' : '') +
       '<button class="btn btn-danger btn-lg btn-block mt8" data-act="logout">' + ic('log-out') + 'Keluar dari akun</button>' +
       '<p class="small faint center">Si-MAKO v' + APP_VER + ' · data tersimpan di Google Sheet milik Pemilik</p></div>';
