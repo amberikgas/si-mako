@@ -69,7 +69,7 @@ registerPage('teknis', {
       '<li>Tempel semua file <code>.gs</code> ke proyek Apps Script, simpan.</li>' +
       '<li>Jalankan fungsi <b>setupAplikasi</b> sekali → catat email & sandi Pemilik di log.</li>' +
       '<li>Deploy → New deployment → Web app · Execute as: <b>Me</b> · Who has access: <b>Anyone</b>.</li>' +
-      '<li>Salin URL <code>/exec</code> ke <code>config.js</code> (API_URL), unggah frontend ke Vercel.</li>' +
+      '<li>Salin URL <code>/exec</code> ke <code>config.js</code> (API_URL), unggah frontend ke Vercel/GitHub Pages.</li>' +
       '<li>Opsional: jalankan <b>isiDataContoh</b> untuk latihan.</li></ol></div>' +
       '<div class="card card-pad stack-sm"><h3 class="h-sm">Fungsi editor Apps Script</h3><div class="small muted" style="line-height:1.9">' +
       '<b>resetSandiPemilik</b> — sandi baru untuk Pemilik · <b>cekPerforma</b> — status cache & pemicu · <b>bersihkanCache</b> — setelah edit manual di Sheet · <b>cadanganSekarang</b> — salin Sheet ke Drive · <b>matikanKeepWarm</b>/<b>nyalakanKeepWarm</b></div></div>' +
@@ -88,7 +88,7 @@ registerPage('teknis', {
       if (s.success) {
         const d = s.data;
         $('#tk-sys', el).innerHTML = '<div class="card"><div class="card-head"><h3>Kesehatan sistem</h3><span class="small muted">Properties ' + d.properties_kb + ' KB</span></div><div class="card-body small">' +
-          '<div class="mb8">Pemicu: ' + esc(d.triggers.join(', ') || '(belum ada — jalankan setupAplikasi)') + ' · keepWarm ' + (d.keep_warm ? 'ON' : 'OFF') + ' · antrean log ' + d.log_queue + '</div>' +
+          '<div class="mb8">Pemicu: ' + esc(d.triggers.join(', ') || '(belum ada — jalankan setupAplikasi)') + ' · keepWarm ' + (d.keep_warm ? 'ON' + (d.work_hours ? ' (' + esc(d.work_hours) + ')' : '') : 'OFF') + ' · antrean log ' + d.log_queue + '</div>' +
           '<div class="mb8">Cadangan terakhir: ' + esc(d.last_backup ? fmt.dateTime(d.last_backup) : 'belum ada') + '</div>' +
           '<table class="table"><thead><tr><th>Tabel</th><th class="r">Baris</th><th>Cache</th></tr></thead><tbody>' + d.tables.map(t => '<tr><td>' + t.tabel + '</td><td class="r num">' + fmt.num(t.baris) + '</td><td>' + t.cache + '</td></tr>').join('') + '</tbody></table></div></div>';
       }

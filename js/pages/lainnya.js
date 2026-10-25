@@ -1,5 +1,5 @@
 /* ============================================================
-   LAINNYA & PENGATURAN (F-06, F-13, F-15) · AKUN
+   LAINNYA & PENGATURAN (F-06, F-13, F-15) · AKUN · RIWAYAT AKTIVITAS (P1)
    ============================================================ */
 'use strict';
 
@@ -28,7 +28,8 @@ registerPage('lainnya', {
         hubRow('#/atur/ukuran', 'ruler', 'slate', 'Jenis & daftar ukuran', '<span class="small muted">' + V.sizeTypes.length + ' aktif</span>') +
         hubRow('#/atur/tahap', 'workflow', 'slate', 'Tahap produksi', '<span class="small muted">' + V.stages.length + ' tahap</span>') +
         hubRow('#/atur/pengguna', 'users-round', 'slate', 'Kelola pengguna', '<span class="small muted">' + V.users.filter(u => u.aktif).length + ' akun</span>') +
-      '</div><div class="section-title" style="margin:8px 0 0"><h2 class="overline">Data</h2></div><div class="card list">' +
+      '</div><div class="section-title" style="margin:8px 0 0"><h2 class="overline">Data & Audit</h2></div><div class="card list">' +
+        hubRow('#/atur/aktivitas', 'history', 'violet', 'Riwayat aktivitas pengguna', lock) +
         hubRow('', 'cloud-upload', 'green', 'Cadangkan ke Google Drive sekarang', '', 'backup') +
         hubRow('', 'download', 'sky', 'Ekspor semua data (JSON)', '', 'export') +
         hubRow('', 'refresh-cw', 'amber', 'Muat ulang data dari Sheet', '', 'refresh') +
@@ -92,7 +93,8 @@ const SETTINGS = {
   nota: { title: 'Format nomor nota', render: renderNumbering },
   ukuran: { title: 'Jenis & daftar ukuran', render: renderSizeTypes },
   tahap: { title: 'Tahap produksi', render: renderStages },
-  pengguna: { title: 'Kelola pengguna', render: renderUsers }
+  pengguna: { title: 'Kelola pengguna', render: renderUsers },
+  aktivitas: { title: 'Riwayat aktivitas', render: renderActivityLogs }
 };
 registerPage('atur', {
   auth: 'owner', nav: 'lainnya', live: false, hideNav: true,
@@ -284,4 +286,75 @@ async function resetPw(u) {
   if (pw == null) return;
   const r = await api('resetPassword', { email: u.email, sandi: pw }, { vers: false });
   UI.toast(r.success ? 'Sandi ' + u.nama + ' diganti.' : r.message, r.success ? 'ok' : 'err');
+}
+
+/* ---------------- P1: Riwayat aktivitas pengguna (Audit Log) ---------------- */
+const ACT_LABELS = {
+  masuk: ['Masuk aplikasi', 'log-in', 'slate'],
+  ubah_sandi: ['Ubah sandi', 'key-round', 'slate'],
+  reset_sandi: ['Reset sandi', 'key-round', 'amber'],
+  catat_pesanan: ['Catat pesanan baru', 'receipt-text', ''],
+  ubah_pesanan: ['Ubah pesanan', 'pencil', 'amber'],
+  batal_pesanan: ['Batalkan pesanan', 'ban', 'red'],
+  ubah_tahap: ['Pindah tahap produksi', 'git-branch', 'violet'],
+  terima_bayar: ['Terima pembayaran', 'wallet', 'green'],
+  batal_bayar: ['Batalkan pembayaran', 'ban', 'red'],
+  tambah_pelanggan: ['Tambah pelanggan', 'user-plus', 'green'],
+  ubah_pelanggan: ['Ubah pelanggan', 'user', 'slate'],
+  mutasi_bahan: ['Mutasi stok bahan', 'boxes', 'amber'],
+  batal_mutasi_bahan: ['Batalkan mutasi bahan', 'ban', 'red'],
+  uang_keluar: ['Catat uang keluar', 'arrow-up-right', 'red'],
+  simpan_harga: ['Simpan daftar harga', 'calculator', 'violet'],
+  ubah_pengaturan: ['Ubah pengaturan usaha', 'settings', 'slate'],
+  ubah_format_nota: ['Ubah format nota', 'file-text', 'slate'],
+  ubah_jenis_ukuran: ['Ubah jenis ukuran', 'ruler', 'slate'],
+  ubah_tahap_aktif: ['Ubah tahap produksi', 'workflow', 'slate'],
+  tambah_pengguna: ['Tambah pengguna', 'user-plus', 'green'],
+  ubah_pengguna: ['Ubah pengguna', 'users-round', 'amber'],
+  lambat: ['Peringatan respons lambat', 'clock', 'amber']
+};
+
+async function renderActivityLogs(el) {
+  el.innerHTML = '<div class="form-narrow">' +
+    pageHead('Riwayat aktivitas', 'Catatan audit 200 aktivitas terbaru pengguna (disimpan 90 hari).', '<button class="btn btn-ghost" data-reload>' + ic('refresh-cw') + 'Muat ulang</button>') +
+    '<div class="row mb12"><div class="search grow">' + ic('search') + '<input class="input" type="search" data-aq placeholder="Cari email, aksi, nomor nota, atau keterangan…" aria-label="Cari aktivitas"></div>' +
+    '<button class="btn btn-ghost btn-icon only-mob" data-reload aria-label="Muat ulang">' + ic('refresh-cw') + '</button></div>' +
+    '<div data-alist>' + UI.skeleton(5) + '</div></div>';
+
+  let logs = [];
+  const box = $('[data-alist]', el);
+  const inp = $('[data-aq]', el);
+
+  const draw = () => {
+    const q = (inp.value || '').trim().toLowerCase();
+    const filtered = q ? logs.filter(r => (r.email + ' ' + r.aksi + ' ' + (ACT_LABELS[r.aksi] ? ACT_LABELS[r.aksi][0] : '') + ' ' + r.ringkas).toLowerCase().indexOf(q) > -1) : logs;
+    if (!filtered.length) {
+      box.innerHTML = '<div class="card">' + UI.empty('history', q ? 'Tidak ditemukan' : 'Belum ada aktivitas', q ? 'Coba kata kunci lain.' : 'Aktivitas pengguna akan tercatat otomatis di sini.') + '</div>';
+      return;
+    }
+    box.innerHTML = '<div class="small muted mb8">Menampilkan ' + filtered.length + ' aktivitas terbaru</div><div class="card list">' +
+      filtered.map(r => {
+        const meta = ACT_LABELS[r.aksi] || [r.aksi || 'Aktivitas', 'activity', 'slate'];
+        return '<div class="li" style="cursor:default;align-items:flex-start"><span class="icon-box sm ' + meta[2] + '">' + ic(meta[1], 'ico-sm') + '</span>' +
+          '<div class="grow"><div class="row-between"><span class="semi">' + esc(meta[0]) + '</span><span class="xs muted nowrap">' + esc(fmt.dateTime(r.waktu)) + '</span></div>' +
+          (r.ringkas ? '<div class="small mt8" style="color:var(--tx)">' + esc(r.ringkas) + '</div>' : '') +
+          '<div class="xs muted mt8">' + esc(r.email) + '</div></div></div>';
+      }).join('') + '</div>';
+  };
+
+  const load = async () => {
+    box.innerHTML = UI.skeleton(5);
+    const r = await api('activityLogs', { limit: 200 }, { vers: false });
+    if (!r.success) {
+      box.innerHTML = '<div class="card">' + UI.errorBox(r.message, true) + '</div>';
+      const retry = $('[data-retry]', box); if (retry) retry.onclick = load;
+      return;
+    }
+    logs = (r.data && r.data.logs) || [];
+    draw();
+  };
+
+  inp.oninput = debounce(draw, 150);
+  el.onclick = e => { if (e.target.closest('[data-reload]')) load(); };
+  await load();
 }

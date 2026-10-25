@@ -142,6 +142,21 @@ function materialMove(b, dir) {
     });
   };
 }
+/** P1: Batalkan mutasi stok bahan bila salah ketik. */
+async function voidMaterialMove(m, b) {
+  const jml = (m.masuk ? '+' + fmt.dec(m.masuk) : '−' + fmt.dec(m.keluar)) + ' ' + (b ? b.satuan : '');
+  const alasan = await UI.prompt({
+    title: 'Batalkan mutasi bahan?',
+    msg: (b ? b.nama + ' (' + jml + ')' : jml) + ' pada ' + fmt.date(m.tgl) + '. Stok bahan akan dikembalikan otomatis.',
+    label: 'Alasan pembatalan',
+    placeholder: 'Contoh: salah ketik jumlah meter/kg',
+    ok: 'Batalkan mutasi'
+  });
+  if (alasan == null) return;
+  const r = await api('voidMaterialMove', { id: m.id, alasan });
+  if (!r.success) { UI.toast(r.message, 'err'); return; }
+  UI.toast('Mutasi dibatalkan. Stok sekarang ' + fmt.dec(r.data.stok) + ' ' + (b ? b.satuan : '') + '.');
+}
 registerPage('stok', {
   title: 'Stok Bahan',
   header: () => ({ title: 'Stok bahan', sub: 'Catat bahan masuk & keluar', back: 'lainnya' }),
@@ -160,13 +175,15 @@ registerPage('stok', {
           '<div class="row mt12"><button class="btn btn-soft grow" data-mv="' + b.id + '" data-dir="masuk">' + ic('package-plus') + 'Masuk</button><button class="btn btn-ghost grow" data-mv="' + b.id + '" data-dir="keluar">' + ic('package-minus') + 'Keluar</button>' +
           (owner ? '<button class="btn btn-icon btn-ghost" data-ed="' + b.id + '" aria-label="Ubah bahan">' + ic('pencil') + '</button>' : '') + '</div>' +
           (mv.length ? '<details class="fold mt12"><summary class="row-between small semi muted" style="min-height:40px">Riwayat (' + mv.length + ')' + ic('chevron-down', 'ico-sm fold-ico') + '</summary><div class="stack-sm mt8">' +
-            mv.slice(0, 15).map(m => '<div class="row-between small" style="border-top:1px solid var(--line);padding-top:6px"><div class="grow"><div>' + esc(m.keterangan || (m.masuk ? 'Masuk' : 'Keluar')) + '</div><div class="muted xs">' + fmt.date(m.tgl) + (m.pesanan_id && V.ordersById[m.pesanan_id] ? ' · ' + esc(V.ordersById[m.pesanan_id].no_nota) : '') + '</div></div><span class="num semi ' + (m.masuk ? 'success' : 'danger') + '">' + (m.masuk ? '+' + fmt.dec(m.masuk) : '−' + fmt.dec(m.keluar)) + '</span></div>').join('') + '</div></details>' : '') + '</div>';
+            mv.slice(0, 15).map(m => '<div class="row-between small" style="border-top:1px solid var(--line);padding-top:6px;' + (m.batal ? 'opacity:.5' : '') + '"><div class="grow"><div>' + esc(m.keterangan || (m.masuk ? 'Masuk' : 'Keluar')) + (m.batal ? ' <span class="pill st-batal">dibatalkan</span>' : '') + '</div><div class="muted xs">' + fmt.date(m.tgl) + (m.pesanan_id && V.ordersById[m.pesanan_id] ? ' · ' + esc(V.ordersById[m.pesanan_id].no_nota) : '') + '</div></div><div class="right"><div class="num semi ' + (m.masuk ? 'success' : 'danger') + '">' + (m.masuk ? '+' + fmt.dec(m.masuk) : '−' + fmt.dec(m.keluar)) + '</div>' +
+              (!m.batal ? '<button class="btn-link btn btn-sm danger" data-voidmv="' + m.id + '" style="min-height:26px;padding:2px 0;font-size:11px">Batalkan</button>' : '') + '</div></div>').join('') + '</div></details>' : '') + '</div>';
       }).join('') + '</div>' : '<div class="card">' + UI.empty('boxes', 'Belum ada data bahan', owner ? 'Tambahkan bahan baku yang ingin dipantau stoknya.' : 'Minta Pemilik menambahkan daftar bahan.', owner ? '<button class="btn btn-primary mt16" data-add>' + ic('plus') + 'Tambah bahan</button>' : '') + '</div>') +
       (owner && V.materials.length ? '<button class="btn btn-soft btn-block mt12 only-mob flex" data-add>' + ic('plus') + 'Tambah bahan</button>' : '');
     el.onclick = e => {
       if (e.target.closest('[data-add]')) return materialForm();
       const m = e.target.closest('[data-mv]'); if (m) return materialMove(Data.get('Bahan', m.dataset.mv), m.dataset.dir);
       const ed = e.target.closest('[data-ed]'); if (ed) return materialForm(Data.get('Bahan', ed.dataset.ed));
+      const vm = e.target.closest('[data-voidmv]'); if (vm) { const mvRow = Data.get('MutasiBahan', vm.dataset.voidmv); if (mvRow) return voidMaterialMove(mvRow, Data.get('Bahan', mvRow.bahan_id)); }
     };
   }
 });
@@ -212,7 +229,7 @@ registerPage('keuangan', {
     } else if (q.tab === 'masuk') {
       const byM = {}; pIn.forEach(x => { const k = methodLabel(x.metode); byM[k] = (byM[k] || 0) + x.jumlah; });
       body = '<div class="row wrap mb12">' + Object.keys(byM).map(k => '<span class="tag">' + esc(k) + ': ' + fmt.rp(byM[k]) + '</span>').join('') + '</div>' +
-        (pIn.length ? '<div class="card list">' + pIn.map(x => { const o = V.ordersById[x.pesanan_id]; return '<a class="li" href="#/pesanan/' + x.pesanan_id + '"><span class="icon-box sm green">' + ic(methodIcon(x.metode), 'ico-sm') + '</span><div class="grow"><div class="semi ellipsis">' + esc(o ? o.cust.nama : '-') + '</div><div class="small muted ellipsis">' + fmt.date(x.tgl) + ' · ' + esc(methodLabel(x.metode)) + ' · ' + esc(x.jenis) + '</div></div><span class="num semi success">+' + fmt.rp(x.jumlah) + '</span></a>'; }).join('') + '</div>'
+        (pIn.length ? '<div class="card list">' + pIn.map(x => { const o = V.ordersById[x.pesanan_id]; return '<a class="li" href="#/pesanan/' + x.pesanan_id + '"><span class="icon-box sm green">' + ic(methodIcon(x.metode), 'ico-sm') + '</span><div class="grow"><div class="semi ellipsis">' + esc(o ? o.cust.nama : '-') + (o && o.batal ? ' <span class="pill st-batal">Pesanan batal · DP hangus</span>' : '') + '</div><div class="small muted ellipsis">' + fmt.date(x.tgl) + ' · ' + esc(methodLabel(x.metode)) + ' · ' + esc(x.jenis) + '</div></div><span class="num semi success">+' + fmt.rp(x.jumlah) + '</span></a>'; }).join('') + '</div>'
           : '<div class="card">' + UI.empty('inbox', 'Belum ada uang masuk bulan ini', '') + '</div>');
     } else {
       const byC = {}; pOut.forEach(x => { byC[x.kategori] = (byC[x.kategori] || 0) + x.jumlah; });
@@ -251,7 +268,7 @@ function monthReport(V, ym) {
   const items = {}; orders.forEach(o => o.items.forEach(b => { const k = b.jenis; items[k] = items[k] || { pcs: 0, total: 0 }; items[k].pcs += b.qty_total; items[k].total += b.subtotal; }));
   return { orders, pays, outs, days, inDay, outDay, sizes, custs, items,
     sales: orders.reduce((a, o) => a + o.total, 0), pcs: orders.reduce((a, o) => a + o.pcs, 0),
-    sIn: pays.reduce((a, p) => a + p.jumlah, 0), sOut: outs.reduce((a, p) => a + p.jumlah, 0) };
+    sIn: pays.reduce((a, p) => a + p.jumlah, 0), sOut: outs.reduce((a, x) => a + x.jumlah, 0) };
 }
 registerPage('laporan', {
   title: 'Laporan', auth: 'owner',

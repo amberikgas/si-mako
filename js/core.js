@@ -8,7 +8,7 @@
 'use strict';
 
 const CFG = Object.assign({ API_URL: '', APP_NAME: 'Si-MAKO' }, window.SIMAKO_CONFIG || {});
-const APP_VER = '1.0.1';
+const APP_VER = '1.0.2';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -92,7 +92,7 @@ const Perf = {
 window.Perf = Perf;
 
 /* ---------------- API ---------------- */
-const READ_ACTIONS = /^(sync|health|previewNumber|systemStatus|exportAll)$/;
+const READ_ACTIONS = /^(sync|health|previewNumber|systemStatus|exportAll|activityLogs)$/;
 const Net = { online: navigator.onLine !== false, listeners: [] };
 function setOnline(v) { if (Net.online === v) return; Net.online = v; Net.listeners.forEach(f => f(v)); }
 addEventListener('online', () => setOnline(true));
@@ -297,7 +297,8 @@ function buildView() {
     orders, ordersById, live, active, unpaid, materials, lowStock,
     priceRefs: T('DaftarHarga').filter(p => p.aktif).sort((a, b) => a.nama.localeCompare(b.nama)),
     users: T('Pengguna'),
-    payments: T('Pembayaran').filter(p => !p.batal && ordersById[p.pesanan_id] && !ordersById[p.pesanan_id].batal),
+    // P1: pembayaran aktif (termasuk DP hangus pada pesanan batal yang tidak di-void) tetap dihitung di kas masuk
+    payments: T('Pembayaran').filter(p => !p.batal && ordersById[p.pesanan_id]),
     expenses: T('UangKeluar').filter(x => !x.batal),
     numbering: T('Penomoran').find(n => n.kunci === 'nota')
   };

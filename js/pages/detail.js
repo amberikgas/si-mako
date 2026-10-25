@@ -32,10 +32,49 @@ function orderMenu(o, anchor) {
 }
 async function cancelOrder(o) {
   if (o.dibayar > 0 && !Session.owner) { UI.toast('Pesanan yang sudah dibayar hanya bisa dibatalkan Pemilik.', 'err'); return; }
-  const alasan = await UI.prompt({ title: 'Batalkan pesanan?', msg: o.no_nota + ' — ' + o.cust.nama + '. Pesanan tidak dihapus, hanya ditandai batal.' + (o.dibayar > 0 ? ' Pembayaran ' + fmt.rp(o.dibayar) + ' tetap tercatat.' : ''), label: 'Alasan pembatalan', placeholder: 'Contoh: pelanggan membatalkan', ok: 'Batalkan pesanan' });
-  if (alasan == null) return;
-  const r = await api('cancelOrder', { id: o.id, alasan });
-  UI.toast(r.success ? 'Pesanan dibatalkan.' : r.message, r.success ? 'ok' : 'err');
+  // Bila belum ada uang masuk, cukup minta alasan pembatalan
+  if (o.dibayar <= 0) {
+    const alasan = await UI.prompt({ title: 'Batalkan pesanan?', msg: o.no_nota + ' — ' + o.cust.nama + '. Pesanan tidak dihapus, hanya ditandai batal.', label: 'Alasan pembatalan', placeholder: 'Contoh: pelanggan membatalkan', ok: 'Batalkan pesanan' });
+    if (alasan == null) return;
+    const r = await api('cancelOrder', { id: o.id, alasan });
+    UI.toast(r.success ? 'Pesanan dibatalkan.' : r.message, r.success ? 'ok' : 'err');
+    return;
+  }
+  // P1: bila sudah ada pembayaran (DP), Pemilik memilih apakah DP dikembalikan atau hangus
+  let opsiDp = 'kembalikan';
+  const reqId = uid();
+  const s = UI.sheet({
+    title: 'Batalkan pesanan?',
+    icon: 'ban',
+    cls: 'dialog',
+    body: '<p class="muted mb12">' + esc(o.no_nota) + ' — <b>' + esc(o.cust.nama) + '</b> sudah membayar <b>' + fmt.rp(o.dibayar) + '</b>.</p>' +
+      '<div class="field mb12"><span class="lbl">Perlakuan uang yang sudah masuk</span>' +
+      '<div class="stack-sm">' +
+        '<button type="button" class="choice on" data-dp="kembalikan" style="align-items:flex-start;text-align:left;padding:10px 12px"><b>Kembalikan ke pelanggan (Refund)</b><small>Pembayaran ' + fmt.rp(o.dibayar) + ' ditandai batal & dikeluarkan dari kas masuk.</small></button>' +
+        '<button type="button" class="choice" data-dp="hangus" style="align-items:flex-start;text-align:left;padding:10px 12px"><b>Uang muka hangus (Tetap di kas)</b><small>Pembayaran ' + fmt.rp(o.dibayar) + ' tetap tercatat sebagai pemasukan kas.</small></button>' +
+      '</div></div>' +
+      '<div class="field"><label class="req" for="co-alasan">Alasan pembatalan</label><input id="co-alasan" class="input" placeholder="Contoh: pelanggan membatalkan pesanan" maxlength="200" autofocus><div class="err" data-cerr hidden>Isi alasan pembatalan.</div></div>',
+    foot: '<button class="btn btn-ghost" data-no>Kembali</button><button class="btn btn-danger" data-yes>Batalkan pesanan</button>'
+  });
+  s.body.onclick = e => {
+    const b = e.target.closest('[data-dp]');
+    if (!b) return;
+    opsiDp = b.dataset.dp;
+    $$('[data-dp]', s.body).forEach(x => x.classList.toggle('on', x === b));
+  };
+  const inp = $('#co-alasan', s.body), err = $('[data-cerr]', s.body);
+  inp.oninput = () => { inp.classList.remove('invalid'); err.hidden = true; };
+  s.foot.querySelector('[data-no]').onclick = () => s.close();
+  s.foot.querySelector('[data-yes]').onclick = async e => {
+    const alasan = inp.value.trim();
+    if (!alasan) { inp.classList.add('invalid'); err.hidden = false; inp.focus(); return; }
+    await UI.busy(e.currentTarget, async () => {
+      const r = await api('cancelOrder', { id: o.id, alasan, opsi_dp: opsiDp }, { reqId });
+      if (!r.success) { UI.toast(r.message, 'err'); return; }
+      s.close();
+      UI.toast('Pesanan dibatalkan (' + (opsiDp === 'kembalikan' ? 'DP dikembalikan' : 'DP hangus') + ').');
+    });
+  };
 }
 async function voidPayment(p) {
   const alasan = await UI.prompt({ title: 'Batalkan pembayaran ini?', msg: fmt.rp(p.jumlah) + ' pada ' + fmt.date(p.tgl) + '. Sisa tagihan akan dihitung ulang.', label: 'Alasan', placeholder: 'Contoh: salah input jumlah', ok: 'Batalkan pembayaran' });
